@@ -47,16 +47,16 @@
       this.root.innerHTML = `
       <div class="editor">
         <header class="topbar">
-          <button class="btn ghost" data-act="home" title="All projects">${icon('back')} Projects</button>
+          <button class="btn ghost" data-act="home" title="All projects">${icon('back')} <span>Projects</span></button>
           <input class="proj-name" value="${U.esc(this.p.name)}" title="Project name" spellcheck="false">
           <div class="vtabs"></div>
           <div class="grow"></div>
           <button class="icon-btn" data-act="undo" title="Undo (Ctrl+Z)">${icon('undo')}</button>
           <button class="icon-btn" data-act="redo" title="Redo (Ctrl+Shift+Z)">${icon('redo')}</button>
           <span class="divider"></span>
-          <button class="btn" data-act="compare" title="Compare layouts side by side">${icon('compare')} Compare</button>
+          <button class="btn" data-act="compare" title="Compare layouts side by side">${icon('compare')} <span>Compare</span></button>
           <div class="menu-wrap">
-            <button class="btn" data-act="export-menu">${icon('download')} Save / export</button>
+            <button class="btn" data-act="export-menu">${icon('download')} <span>Save / export</span></button>
             <div class="menu" hidden>
               <button data-act="link-file">${icon('save')} <span class="lf-label">Auto-save to a file on this computer…</span></button>
               <button data-act="export-json">${icon('file')} Download project file (.json)</button>
@@ -71,7 +71,7 @@
             <div class="tools"></div>
             <div class="tool-opts"></div>
             <div class="sec-head"><h3>Furniture</h3><button class="link" data-act="new-type">${icon('plus', 14)} New type</button></div>
-            <p class="hint small">Click to add, or drag onto the plan.</p>
+            <p class="hint small">Tap or click to add, or drag onto the plan.</p>
             <input class="inp lib-search" type="search" placeholder="Search furniture…">
             <div class="library"></div>
           </aside>
@@ -103,7 +103,12 @@
             <div class="sec-head"><h3>View</h3></div>
             <div class="viewopts"></div>
           </aside>
+          <div class="sheet-back" data-act="sheet-close"></div>
         </div>
+        <nav class="mobbar">
+          <button data-act="sheet-left">${icon('plus', 18)}<span>Add &amp; tools</span></button>
+          <button data-act="sheet-right" class="mob-edit">${icon('edit', 18)}<span class="mob-edit-label">Layers</span></button>
+        </nav>
       </div>`;
       const r = this.root;
       this.svg = U.$('.canvas', r);
@@ -161,6 +166,9 @@
         case 'fit': return this.fit();
         case 'new-type': return this.newType();
         case 'new-room': return this.newGroup();
+        case 'sheet-left': return this.openSheet(this.sheet === 'left' ? null : 'left');
+        case 'sheet-right': return this.openSheet(this.sheet === 'right' ? null : 'right');
+        case 'sheet-close': return this.openSheet(null);
       }
     }
 
@@ -267,6 +275,24 @@
       clearTimeout(this._vt);
       this._vt = setTimeout(() => this.save(), 800);
     }
+    // On phones the side panels are bottom sheets opened from the bar at the bottom.
+    get isPhone() {
+      return window.matchMedia('(max-width: 760px)').matches;
+    }
+    openSheet(which) {
+      this.sheet = which;
+      const ed = U.$('.editor', this.root);
+      ed.classList.toggle('sheet-left', which === 'left');
+      ed.classList.toggle('sheet-right', which === 'right');
+    }
+    updateMobBar() {
+      const l = U.$('.mob-edit-label', this.root);
+      if (!l) return;
+      const it = this.selItem;
+      l.textContent = it ? `Edit ${it.name || 'item'}` : 'Layers';
+      U.$('.mob-edit', this.root).classList.toggle('on', !!it);
+    }
+
     toWorld(e) {
       const r = this.svg.getBoundingClientRect();
       return [this.view.x + (e.clientX - r.left) / this.view.scale, this.view.y + (e.clientY - r.top) / this.view.scale];
@@ -300,6 +326,7 @@
       this.renderLayers();
       this.updateUndoBtns();
       this.updateStatus();
+      this.updateMobBar();
     }
     // fast path while dragging: only the moved item + overlay
     renderItemFast(it) {
@@ -320,12 +347,13 @@
       let o = '';
       const it = this.selItem;
       if (it && !it.hidden && this.tool === 'select') {
-        const hs = 11 * px;
+        const touch = window.matchMedia('(pointer: coarse)').matches;
+        const hs = (touch ? 22 : 11) * px, rotR = (touch ? 13 : 8) * px, rotOff = (touch ? 40 : 26) * px;
         o += `<g transform="${Scene.itemTransform(it)}">`;
         o += `<rect x="${f(-it.w / 2)}" y="${f(-it.d / 2)}" width="${f(it.w)}" height="${f(it.d)}" fill="none" stroke="#2f6fed" stroke-width="${f(1.5 * px)}" stroke-dasharray="${f(5 * px)} ${f(3 * px)}"/>`;
         if (!it.locked) {
-          o += `<line x1="0" y1="${f(-it.d / 2)}" x2="0" y2="${f(-it.d / 2 - 26 * px)}" stroke="#2f6fed" stroke-width="${f(1.5 * px)}"/>`;
-          o += `<circle data-handle="rot" cx="0" cy="${f(-it.d / 2 - 26 * px)}" r="${f(8 * px)}" fill="#fff" stroke="#2f6fed" stroke-width="${f(2 * px)}" class="h-rot"/>`;
+          o += `<line x1="0" y1="${f(-it.d / 2)}" x2="0" y2="${f(-it.d / 2 - rotOff)}" stroke="#2f6fed" stroke-width="${f(1.5 * px)}"/>`;
+          o += `<circle data-handle="rot" cx="0" cy="${f(-it.d / 2 - rotOff)}" r="${f(rotR)}" fill="#fff" stroke="#2f6fed" stroke-width="${f(2 * px)}" class="h-rot"/>`;
           for (const hx of [-1, 0, 1])
             for (const hy of [-1, 0, 1]) {
               if (!hx && !hy) continue;
@@ -407,7 +435,10 @@
       ).join('');
       host.onclick = (e) => {
         const b = e.target.closest('[data-tool]');
-        if (b) this.setTool(b.dataset.tool);
+        if (b) {
+          this.setTool(b.dataset.tool);
+          if (this.isPhone && !['erase', 'lights'].includes(b.dataset.tool)) this.openSheet(null);
+        }
       };
       this.renderToolOpts();
     }
@@ -577,7 +608,10 @@
           return this.deleteType(del.dataset.del);
         }
         const li = e.target.closest('.lib-item');
-        if (li) this.addItem(li.dataset.type);
+        if (li) {
+          this.addItem(li.dataset.type);
+          if (this.isPhone) this.openSheet(null);
+        }
       };
       host.ondragstart = (e) => {
         const li = e.target.closest('.lib-item');
@@ -643,6 +677,7 @@
       this.renderOverlay();
       this.renderProps();
       this.renderLayers();
+      this.updateMobBar();
     }
     updateSel(fn, opts) {
       const it = this.selItem;
@@ -1276,11 +1311,56 @@
       });
     }
 
+    // Two fingers on the plan zoom and pan; whatever the first finger started is undone.
+    startPinch() {
+      const d = this.drag;
+      if (d && ['move', 'rotate', 'resize'].includes(d.kind)) {
+        Object.assign(d.it, d.orig);
+        this.renderAll({ keepProps: true });
+      } else if (d && d.kind === 'brush') {
+        this.v.erasures = this.v.erasures.filter((x) => x !== d.stroke);
+        this.L.erase.innerHTML = Scene.erasures(this.v);
+      }
+      this.measure = null;
+      this.dragRect = null;
+      const [a, b] = [...this.touches.values()];
+      const r = this.svg.getBoundingClientRect();
+      const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+      this.drag = { kind: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, scale: this.view.scale, wx: this.view.x + mx / this.view.scale, wy: this.view.y + my / this.view.scale };
+      this.renderOverlay();
+    }
+    movePinch() {
+      const d = this.drag;
+      const [a, b] = [...this.touches.values()];
+      const r = this.svg.getBoundingClientRect();
+      const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+      const v = this.view;
+      v.scale = U.clamp((d.scale * Math.hypot(a.x - b.x, a.y - b.y)) / d.dist, 0.02, 20);
+      v.x = d.wx - mx / v.scale;
+      v.y = d.wy - my / v.scale;
+      this.applyView();
+    }
+
+    capture(e) {
+      try {
+        this.svg.setPointerCapture(e.pointerId);
+      } catch (_) {}
+    }
+
     onDown(e) {
+      if (e.pointerType === 'touch') {
+        this.touches = this.touches || new Map();
+        this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (this.touches.size === 2) {
+          this.capture(e);
+          return this.startPinch();
+        }
+        if (this.touches.size > 2) return;
+      }
       if (this.drag) return;
       const p = this.toWorld(e);
       const pan = e.button === 1 || e.button === 2 || this.spaceDown || this.tool === 'pan';
-      this.svg.setPointerCapture(e.pointerId);
+      this.capture(e);
       if (pan) {
         this.drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: this.view.x, vy: this.view.y };
         this.svg.classList.add('panning');
@@ -1306,8 +1386,8 @@
           this.drag = { kind: 'move', it: it2, orig: U.clone(it2), snap: this.snapshot(), p0: p, wasSel, sx: e.clientX, sy: e.clientY, moved: false };
           return;
         }
-        if (this.sel) this.select(null);
-        this.drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: this.view.x, vy: this.view.y };
+        // tapping empty floor deselects, but only once the finger lifts without panning or pinching
+        this.drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: this.view.x, vy: this.view.y, deselect: true };
         this.svg.classList.add('panning');
       } else if (t === 'measure' || t === 'scale' || t === 'straighten') {
         this.measure = { kind: t, x1: p[0], y1: p[1], x2: p[0], y2: p[1] };
@@ -1333,6 +1413,10 @@
     }
 
     onMove(e) {
+      if (e.pointerType === 'touch' && this.touches && this.touches.has(e.pointerId)) {
+        this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (this.drag && this.drag.kind === 'pinch') return this.touches.size >= 2 && this.movePinch();
+      }
       const p = this.toWorld(e);
       this.updateStatus(p);
       if (this.tool === 'erase' && this.eraseOpts.mode === 'brush') {
@@ -1348,7 +1432,7 @@
         return;
       }
       if (d.kind === 'move') {
-        if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 3) return;
+        if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < (e.pointerType === 'touch' ? 8 : 3)) return;
         d.moved = true;
         if (d.it.locked) return;
         let dx = p[0] - d.p0[0], dy = p[1] - d.p0[1];
@@ -1420,6 +1504,21 @@
     }
 
     onUp(e) {
+      if (e.pointerType === 'touch' && this.touches) {
+        this.touches.delete(e.pointerId);
+        if (this.drag && this.drag.kind === 'pinch') {
+          // the pinch ends when the first finger lifts; ignore the second one
+          if (this.touches.size < 2) {
+            this.drag = { kind: 'pinchend' };
+            this.saveViewSoon();
+          }
+          return;
+        }
+        if (this.drag && this.drag.kind === 'pinchend') {
+          if (!this.touches.size) this.drag = null;
+          return;
+        }
+      }
       const d = this.drag;
       this.drag = null;
       this.svg.classList.remove('panning');
@@ -1427,7 +1526,10 @@
         this.svg.releasePointerCapture(e.pointerId);
       } catch (_) {}
       if (!d) return;
-      if (d.kind === 'pan') return this.saveViewSoon();
+      if (d.kind === 'pan') {
+        if (d.deselect && this.sel && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 6) this.select(null);
+        return this.saveViewSoon();
+      }
       if (d.kind === 'move' && !d.moved) {
         // Clicking an already-selected item again picks the item underneath it,
         // so a rug under a table can still be selected.
