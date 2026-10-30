@@ -7,6 +7,8 @@ A local website for trying furniture layouts on your own floor plan, to scale. N
 1. Download the whole `floorplanner` folder to your computer (keep `css`, `js` and `vendor` next to `index.html`).
 2. Double-click `index.html`. Chrome or Edge works best.
 
+On a phone: open https://gunnarviking.github.io/floor-plan/ . Tap **Add & tools** or **Layers** at the bottom to open the panels, pinch with two fingers to zoom and pan, and drag the handles to resize or rotate.
+
 ## Where your work is saved
 
 - **Automatically in the browser** on this computer (IndexedDB). It survives closing the browser, but clearing site data removes it.
